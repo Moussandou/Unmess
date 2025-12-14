@@ -4,6 +4,7 @@ import './globals.css'
 import { Providers } from './providers'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
+import PageTransition from '@/components/PageTransition'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -22,9 +23,11 @@ export default function RootLayout({
             <body className={inter.className}>
                 <Providers>
                     <Header />
-                    <main className="min-h-screen">
-                        {children}
-                    </main>
+                    <PageTransition>
+                        <main className="min-h-screen">
+                            {children}
+                        </main>
+                    </PageTransition>
                     <Footer />
                 </Providers>
             </body>

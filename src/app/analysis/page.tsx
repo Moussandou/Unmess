@@ -157,31 +157,32 @@ export default function AnalysisPage() {
                             <Brain className="absolute inset-0 m-auto text-purple-400 w-10 h-10 animate-pulse" />
                         </div>
 
-                        <div className="space-y-2">
-                            <h2 className="text-2xl font-bold text-white tracking-tight">{statusMsg}</h2>
-                            {playlistName && <p className="text-purple-300">Playlist : {playlistName}</p>}
-                        </div>
+                        <div className="space-y-8 text-center">
+                            <div>
+                                <h2 className="text-2xl font-bold mb-2">{progressMessage}</h2>
+                                <p className="text-gray-400">{progressSubMessage}</p>
+                            </div>
 
-                        {/* Simple Steps */}
-                        <div className="flex justify-center gap-2">
-                            <StepIndicator active={progressStep >= 1} />
-                            <StepIndicator active={progressStep >= 2} />
-                            <StepIndicator active={progressStep >= 3} />
+                            {/* Simple Steps */}
+                            <div className="flex justify-center gap-2">
+                                <StepIndicator active={progressStep >= 1} />
+                                <StepIndicator active={progressStep >= 2} />
+                                <StepIndicator active={progressStep >= 3} />
+                            </div>
                         </div>
+                )}
+
+                        {/* Results Interface */}
+                        {progressStep === 3 && clusters && (
+                            <ResultsView clusters={clusters} onClustersUpdate={setClusters} />
+                        )}
                     </div>
-                )}
-
-                {/* Results Interface */}
-                {progressStep === 3 && clusters && (
-                    <ResultsView clusters={clusters} onClustersUpdate={setClusters} />
-                )}
-            </div>
         </div>
-    )
+            )
 }
 
-function StepIndicator({ active }: { active: boolean }) {
+            function StepIndicator({active}: {active: boolean }) {
     return (
-        <div className={`h-1.5 w-12 rounded-full transition-all duration-500 ${active ? 'bg-purple-500' : 'bg-white/10'}`} />
-    )
+            <div className={`h-1.5 w-12 rounded-full transition-all duration-500 ${active ? 'bg-purple-500' : 'bg-white/10'}`} />
+            )
 }
