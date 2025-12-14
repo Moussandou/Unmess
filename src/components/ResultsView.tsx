@@ -1,7 +1,9 @@
 import { useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ChevronDown, ChevronUp, Music, Disc, Calendar, Play, Pause, AlertCircle } from 'lucide-react'
+import { ChevronDown, ChevronUp, Music, Disc, Calendar, Play, Pause, AlertCircle, Download, Check } from 'lucide-react'
 import { ClusterResult, TrackData } from '@/lib/analysis'
+import { useSession } from 'next-auth/react'
+import { createPlaylist, addTracksToPlaylist } from '@/lib/spotify'
 
 interface ResultsViewProps {
     clusters: ClusterResult[]
@@ -9,9 +11,13 @@ interface ResultsViewProps {
 }
 
 export default function ResultsView({ clusters, onClustersUpdate }: ResultsViewProps) {
+    const { data: session } = useSession();
     const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
     const [playingTrackId, setPlayingTrackId] = useState<string | null>(null)
     const [localClusters, setLocalClusters] = useState<ClusterResult[]>(clusters)
+    const [exportingIndex, setExportingIndex] = useState<number | null>(null)
+    const [exportingAll, setExportingAll] = useState(false)
+    const [exportedClusters, setExportedClusters] = useState<Set<number>>(new Set())
     const audioRef = useRef<HTMLAudioElement | null>(null)
 
     const handlePlay = (trackId: string, url: string | null) => {
@@ -43,6 +49,51 @@ export default function ResultsView({ clusters, onClustersUpdate }: ResultsViewP
         onClustersUpdate?.(updatedClusters);
     }
 
+    const handleExportCluster = async (index: number) => {
+        if (!session?.accessToken || !session?.user?.email) {
+            alert('Session expirée. Reconnectez-vous.');
+            return;
+        }
+
+        setExportingIndex(index);
+        try {
+            const cluster = localClusters[index];
+            const playlistName = cluster.label || `Groupe ${index + 1}`;
+            const trackUris = cluster.tracks.map(t => `spotify:track:${t.id}`);
+
+            // Get user ID from email (Spotify API requirement)
+            const userId = session.user.email.split('@')[0];
+
+            const playlist = await createPlaylist(
+                session.accessToken,
+                userId,
+                playlistName,
+                `Created by Unmess - ${cluster.tracks.length} tracks`
+            );
+
+            await addTracksToPlaylist(session.accessToken, playlist.id, trackUris);
+
+            setExportedClusters(prev => new Set(prev).add(index));
+            setTimeout(() => {
+                window.open(playlist.external_urls.spotify, '_blank');
+            }, 500);
+        } catch (error) {
+            console.error('Export error:', error);
+            alert(`Erreur lors de l'export: ${error}`);
+        } finally {
+            setExportingIndex(null);
+        }
+    }
+
+    const handleExportAll = async () => {
+        if (!session?.accessToken) return;
+        setExportingAll(true);
+        for (let i = 0; i < localClusters.length; i++) {
+            await handleExportCluster(i);
+        }
+        setExportingAll(false);
+    }
+
     return (
         <div className="w-full max-w-4xl mx-auto space-y-6 pb-20">
             <div className="glass p-8 rounded-3xl border border-white/5 bg-black/40 text-left">
@@ -53,6 +104,17 @@ export default function ResultsView({ clusters, onClustersUpdate }: ResultsViewP
                             {localClusters.reduce((acc, c) => acc + c.tracks.length, 0)} titres classés en {localClusters.length} groupes
                         </p>
                     </div>
+                    <button
+                        onClick={handleExportAll}
+                        disabled={exportingAll || localClusters.length === 0}
+                        className="px-6 py-3 bg-green-500 hover:bg-green-400 disabled:bg-gray-600 disabled:cursor-not-allowed text-black font-bold rounded-full transition-all flex items-center gap-2"
+                    >
+                        {exportingAll ? (
+                            <><div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" /> Exportation...</>
+                        ) : (
+                            <><Download className="w-5 h-5" /> Tout Exporter</>
+                        )}
+                    </button>
                 </div>
 
                 <div className="grid grid-cols-1 gap-4">
@@ -66,6 +128,9 @@ export default function ResultsView({ clusters, onClustersUpdate }: ResultsViewP
                             playingTrackId={playingTrackId}
                             onPlay={handlePlay}
                             onRename={(newLabel) => handleRenameCluster(i, newLabel)}
+                            onExport={() => handleExportCluster(i)}
+                            isExporting={exportingIndex === i}
+                            isExported={exportedClusters.has(i)}
                         />
                     ))}
                 </div>
@@ -74,14 +139,17 @@ export default function ResultsView({ clusters, onClustersUpdate }: ResultsViewP
     )
 }
 
-function ClusterCard({ cluster, index, isExpanded, onToggle, playingTrackId, onPlay, onRename }: {
+function ClusterCard({ cluster, index, isExpanded, onToggle, playingTrackId, onPlay, onRename, onExport, isExporting, isExported }: {
     cluster: ClusterResult,
     index: number,
     isExpanded: boolean,
     onToggle: () => void,
     playingTrackId: string | null,
     onPlay: (id: string, url: string | null) => void,
-    onRename: (newLabel: string) => void
+    onRename: (newLabel: string) => void,
+    onExport: () => void,
+    isExporting: boolean,
+    isExported: boolean
 }) {
     const [isEditing, setIsEditing] = useState(false);
     const [editValue, setEditValue] = useState(cluster.label || `Groupe ${index + 1}`);
@@ -240,10 +308,19 @@ function ClusterCard({ cluster, index, isExpanded, onToggle, playingTrackId, onP
 
                         {/* Actions Footer */}
                         <div className="mt-4 pt-4 border-t border-white/5 flex justify-end gap-3">
-                            {/* Future Export Buttons */}
-                            {/* <button className="px-4 py-2 text-sm bg-green-500 hover:bg-green-400 text-black font-bold rounded-full transition-colors">
-                                 Exporter vers Spotify
-                             </button> */}
+                            <button
+                                onClick={(e) => { e.stopPropagation(); onExport(); }}
+                                disabled={isExporting || isExported}
+                                className="px-4 py-2 text-sm bg-green-500 hover:bg-green-400 disabled:bg-gray-600 disabled:cursor-not-allowed text-black font-bold rounded-full transition-colors flex items-center gap-2"
+                            >
+                                {isExporting ? (
+                                    <><div className="w-3 h-3 border-2 border-black border-t-transparent rounded-full animate-spin" /> Exportation...</>
+                                ) : isExported ? (
+                                    <><Check className="w-4 h-4" /> Exporté ✓</>
+                                ) : (
+                                    <><Download className="w-4 h-4" /> Exporter vers Spotify</>
+                                )}
+                            </button>
                         </div>
                     </motion.div>
                 )}

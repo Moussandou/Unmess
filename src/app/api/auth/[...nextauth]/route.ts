@@ -19,7 +19,10 @@ export const authOptions: AuthOptions = {
             authorization: {
                 // FORCE the consent dialog to fix stale token issues
                 // and add show_dialog: true to break the auto-login loop
-                params: { scope: scopes, show_dialog: "true" },
+                params: {
+                    scope: 'user-read-email user-read-private playlist-read-private playlist-read-collaborative playlist-modify-public playlist-modify-private',
+                    show_dialog: 'true'
+                },
             },
         }),
     ],

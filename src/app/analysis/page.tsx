@@ -169,10 +169,12 @@ export default function AnalysisPage() {
                             <StepIndicator active={progressStep >= 3} />
                         </div>
                     </div>
-                ) : (
-                    { progressStep === 3 && clusters && (
-                        <ResultsView clusters={clusters} onClustersUpdate={setClusters} />
-                    )}    )}
+                )}
+
+                {/* Results Interface */}
+                {progressStep === 3 && clusters && (
+                    <ResultsView clusters={clusters} onClustersUpdate={setClusters} />
+                )}
             </div>
         </div>
     )

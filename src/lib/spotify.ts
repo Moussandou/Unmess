@@ -145,3 +145,51 @@ export async function getArtists(artistIds: string[], accessToken: string) {
 
     return allArtists;
 }
+
+export async function createPlaylist(accessToken: string, userId: string, name: string, description?: string) {
+    const res = await fetch(`https://api.spotify.com/v1/users/${userId}/playlists`, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            name,
+            description: description || 'Created by Unmess',
+            public: false
+        })
+    });
+
+    if (!res.ok) {
+        const error = await res.json();
+        throw new Error(`Playlist creation failed: ${JSON.stringify(error)}`);
+    }
+
+    return res.json();
+}
+
+export async function addTracksToPlaylist(accessToken: string, playlistId: string, trackUris: string[]) {
+    // Spotify allows max 100 tracks per request
+    const chunks = [];
+    for (let i = 0; i < trackUris.length; i += 100) {
+        chunks.push(trackUris.slice(i, i + 100));
+    }
+
+    for (const chunk of chunks) {
+        const res = await fetch(`https://api.spotify.com/v1/playlists/${playlistId}/tracks`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ uris: chunk })
+        });
+
+        if (!res.ok) {
+            const error = await res.json();
+            throw new Error(`Failed to add tracks: ${JSON.stringify(error)}`);
+        }
+    }
+
+    return true;
+}
