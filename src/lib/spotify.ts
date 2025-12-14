@@ -47,7 +47,13 @@ export async function getAllPlaylistTracks(playlistId: string, accessToken: stri
         nextUrl = data.next;
     }
 
-    return tracks.map(item => item.track).filter(t => t && t.id); // Filter out nulls/locals
+    // Filter out:
+    // 1. Null tracks
+    // 2. Local files (is_local: true) - Audio Features API doesn't support them
+    // 3. Episodes (type !== 'track')
+    return tracks
+        .map(item => item.track)
+        .filter(t => t && t.id && !t.is_local && t.type === 'track');
 }
 
 /**
@@ -55,22 +61,87 @@ export async function getAllPlaylistTracks(playlistId: string, accessToken: stri
  */
 export async function getAudioFeatures(trackIds: string[], accessToken: string) {
     const chunks = [];
-    for (let i = 0; i < trackIds.length; i += 100) {
-        chunks.push(trackIds.slice(i, i + 100));
+    // Reduce batch size to 20 to be extremely safe against 414/403
+    for (let i = 0; i < trackIds.length; i += 20) {
+        chunks.push(trackIds.slice(i, i + 20));
     }
 
     let allFeatures: any[] = [];
 
     for (const chunk of chunks) {
-        const res = await fetch(`${SPOTIFY_API_BASE}/audio-features?ids=${chunk.join(',')}`, {
-            headers: { Authorization: `Bearer ${accessToken}` }
-        });
+        try {
+            const url = `${SPOTIFY_API_BASE}/audio-features?ids=${chunk.join(',')}`;
+            const res = await fetch(url, {
+                headers: { Authorization: `Bearer ${accessToken}` }
+            });
 
-        if (!res.ok) throw new Error('Failed to fetch audio features');
+            if (!res.ok) {
+                console.warn(`Features batch failed (${res.status}). Using defaults for ${chunk.length} tracks.`);
+                // Return nulls or defaults to allow process to continue
+                const defaults = chunk.map(() => ({
+                    acousticness: 0.5, danceability: 0.5, energy: 0.5,
+                    instrumentalness: 0, liveness: 0.5, speechiness: 0.5,
+                    valence: 0.5, tempo: 120
+                }));
+                allFeatures = [...allFeatures, ...defaults];
+                continue;
+            }
 
-        const data = await res.json();
-        allFeatures = [...allFeatures, ...data.audio_features];
+            const data = await res.json();
+            // Sometimes data.audio_features can contain nulls for specific tracks
+            const safeFeatures = data.audio_features.map((f: any) => f || {
+                acousticness: 0.5, danceability: 0.5, energy: 0.5,
+                instrumentalness: 0, liveness: 0.5, speechiness: 0.5,
+                valence: 0.5, tempo: 120
+            });
+            allFeatures = [...allFeatures, ...safeFeatures];
+
+        } catch (e) {
+            console.error("Chunk fetch error:", e);
+            const defaults = chunk.map(() => ({
+                acousticness: 0.5, danceability: 0.5, energy: 0.5,
+                instrumentalness: 0, liveness: 0.5, speechiness: 0.5,
+                valence: 0.5, tempo: 120
+            }));
+            allFeatures = [...allFeatures, ...defaults];
+        }
     }
 
     return allFeatures;
+}
+
+/**
+ * Fetches Artists details (including GENRES) for a list of Artist IDs.
+ * Handles batching (max 50 IDs per request).
+ */
+export async function getArtists(artistIds: string[], accessToken: string) {
+    const uniqueIds = Array.from(new Set(artistIds.filter(id => id))); // Dedup & clean
+    const chunks = [];
+
+    for (let i = 0; i < uniqueIds.length; i += 50) {
+        chunks.push(uniqueIds.slice(i, i + 50));
+    }
+
+    let allArtists: any[] = [];
+
+    for (const chunk of chunks) {
+        const url = `${SPOTIFY_API_BASE}/artists?ids=${chunk.join(',')}`;
+        try {
+            const res = await fetch(url, {
+                headers: { Authorization: `Bearer ${accessToken}` }
+            });
+
+            if (!res.ok) {
+                console.warn(`Artists batch failed (${res.status}). Continuing...`);
+                continue;
+            }
+
+            const data = await res.json();
+            allArtists = [...allArtists, ...data.artists];
+        } catch (e) {
+            console.error("Artist batch fetch error:", e);
+        }
+    }
+
+    return allArtists;
 }

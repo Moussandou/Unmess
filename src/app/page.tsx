@@ -41,30 +41,7 @@ export default function Home() {
             </div>
 
             <div className="relative z-10 container mx-auto px-6 py-20 min-h-screen flex flex-col">
-                {/* Navbar */}
-                <motion.nav
-                    initial={{ opacity: 0, y: -20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.8 }}
-                    className="flex justify-between items-center mb-24 glass rounded-full px-8 py-4 sticky top-6 z-50 bg-black/20"
-                >
-                    <div className="flex items-center gap-4">
-                        <div className="relative w-10 h-10 shadow-[0_0_20px_rgba(139,92,246,0.5)] rounded-xl overflow-hidden">
-                            <Image
-                                src="/logo.png"
-                                alt="Unmess Logo"
-                                fill
-                                className="object-cover"
-                            />
-                        </div>
-                        <span className={`font-bold text-2xl tracking-tighter ${spaceGrotesk.className}`}>
-                            Unmess
-                        </span>
-                    </div>
-                    <button className="text-sm font-medium text-gray-300 hover:text-white transition-colors hover:bg-white/10 px-4 py-2 rounded-full">
-                        À propos
-                    </button>
-                </motion.nav>
+                {/* Header is global now */}
 
                 {/* Hero Section */}
                 <div className="flex-1 flex flex-col lg:flex-row items-center gap-16 lg:gap-24">
@@ -119,7 +96,7 @@ export default function Home() {
                             className="flex flex-col sm:flex-row items-center gap-4 justify-center lg:justify-start"
                         >
                             <button
-                                onClick={() => signIn('spotify')}
+                                onClick={() => signIn('spotify', { callbackUrl: '/dashboard' })}
                                 className="group relative px-8 py-4 bg-white text-black rounded-full font-semibold hover:bg-gray-100 transition-all flex items-center gap-2 overflow-hidden"
                             >
                                 <span className="relative z-10">Connecter Spotify</span>
@@ -170,7 +147,7 @@ export default function Home() {
                     </motion.div>
                 </div>
             </div>
-        </main>
+        </main >
     )
 }
 

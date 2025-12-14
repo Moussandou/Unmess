@@ -3,6 +3,7 @@ import SpotifyProvider from "next-auth/providers/spotify"
 
 const scopes = [
     "user-read-email",
+    "user-read-private", // Added for broader access
     "playlist-read-private",
     "playlist-read-collaborative",
     "playlist-modify-public",
@@ -16,7 +17,9 @@ export const authOptions: AuthOptions = {
             clientId: process.env.SPOTIFY_CLIENT_ID!,
             clientSecret: process.env.SPOTIFY_CLIENT_SECRET!,
             authorization: {
-                params: { scope: scopes },
+                // FORCE the consent dialog to fix stale token issues
+                // and add show_dialog: true to break the auto-login loop
+                params: { scope: scopes, show_dialog: "true" },
             },
         }),
     ],

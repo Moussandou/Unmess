@@ -3,9 +3,10 @@
 import { useSession } from "next-auth/react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
-import { getAllPlaylistTracks, getAudioFeatures, fetchPlaylist } from "@/lib/spotify"
+import { getAllPlaylistTracks, getArtists, fetchPlaylist } from "@/lib/spotify"
 import { performClustering, TrackData, ClusterResult } from "@/lib/analysis"
 import { Loader2, CheckCircle2, Brain, Music, AlertCircle } from "lucide-react"
+import ResultsView from "@/components/ResultsView"
 
 export default function AnalysisPage() {
     const { data: session, status } = useSession()
@@ -48,33 +49,53 @@ export default function AnalysisPage() {
 
             if (tracksRaw.length === 0) throw new Error("Cette playlist est vide.")
 
-            // Step 2: Fetch Audio Features
+            // Step 2: Fetch Artist Metadata (Genres & Popularity)
             setProgressStep(2)
-            setStatusMsg(`Analyse neurale en cours (${tracksRaw.length} titres)...`)
+            setStatusMsg(`Analyse contextuelle (${tracksRaw.length} titres)...`)
 
-            const trackIds = tracksRaw.map(t => t.id)
-            const featuresRaw = await getAudioFeatures(trackIds, token)
+            // Extract all unique Artist IDs
+            const allArtistIds = tracksRaw.flatMap(t => t.artists.map((a: any) => a.id)).filter(id => id);
+            const artistsData = await getArtists(allArtistIds, token);
+
+            // Create a Map for quick lookup
+            const artistMap = new Map(artistsData.map((a: any) => [a.id, a]));
 
             // Merge Data
-            const tracks: TrackData[] = tracksRaw.map((t, i) => ({
-                id: t.id,
-                name: t.name,
-                artist: t.artists[0]?.name || 'Unknown',
-                features: featuresRaw[i]
-            })).filter(t => t.features) // Filter out tracks with no features (local files etc)
+            const tracks: TrackData[] = tracksRaw.map((t) => {
+                const mainArtistId = t.artists[0]?.id;
+                const mainArtist = artistMap.get(mainArtistId);
+
+                // Release Date Parsing (Handling "YYYY", "YYYY-MM", "YYYY-MM-DD")
+                const releaseYear = t.album.release_date ? parseInt(t.album.release_date.split('-')[0]) : 2000;
+
+                return {
+                    id: t.id,
+                    name: t.name,
+                    artist: t.artists[0]?.name || 'Unknown',
+                    artistIds: t.artists.map((a: any) => a.id),
+                    album: t.album.name,
+                    releaseYear: releaseYear || 2000,
+                    popularity: t.popularity || 0,
+                    genres: mainArtist?.genres || [], // The secret sauce 🌶️
+                    image: t.album.images?.[0]?.url || t.album.images?.[1]?.url || null,
+                    previewUrl: t.preview_url
+                };
+            });
 
             // Step 3: Clustering
-            setStatusMsg("Organisation du chaos...")
+            setStatusMsg("Organisation temporelle et stylistique...")
             // Small delay to let UI breathe
             await new Promise(r => setTimeout(r, 800))
 
-            const results = performClustering(tracks, Math.min(6, Math.max(3, Math.floor(tracks.length / 20)))) // Dynamic K
+            // Use Metadata Engine
+            // Increased K to max 8 for better granularity
+            const results = performClustering(tracks, Math.min(8, Math.max(4, Math.floor(tracks.length / 15))))
             setClusters(results)
             setProgressStep(3)
 
         } catch (err: any) {
             console.error(err)
-            setError(err.message || "Une erreur est survenue")
+            setError(err.message || "Une erreur est survenue");
         }
     }
 
@@ -86,7 +107,39 @@ export default function AnalysisPage() {
             </div>
 
             <div className="relative z-10 max-w-2xl w-full">
-                {error ? (
+                {error === "SPOTIFY_403_ACCESS_DENIED" ? (
+                    <div className="glass p-8 rounded-3xl border border-red-500/20 bg-red-500/10 text-left">
+                        <div className="flex items-center gap-4 mb-4 text-red-400">
+                            <AlertCircle className="w-10 h-10" />
+                            <h2 className="text-2xl font-bold">Accès Refusé (403)</h2>
+                        </div>
+                        <p className="text-gray-300 mb-6">
+                            Spotify bloque l'accès aux "Audio Features". C'est une sécurité standard pour les Apps en développement.
+                        </p>
+
+                        <div className="bg-black/40 p-6 rounded-xl border border-white/5 space-y-4 mb-6">
+                            <h3 className="font-bold text-white flex items-center gap-2">
+                                🔧 La Solution (à faire 1 seule fois) :
+                            </h3>
+                            <ol className="list-decimal list-inside text-gray-300 space-y-2 text-sm">
+                                <li>Va sur <a href="https://developer.spotify.com/dashboard" target="_blank" className="text-purple-400 underline">Spotify Developer Dashboard</a></li>
+                                <li>Vérifie que tu es sur l'app avec le Client ID : <span className="font-mono bg-white/10 px-2 py-0.5 rounded text-white text-xs">{process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID_PREVIEW || "718e...c3e1"}</span></li>
+                                <li>Va dans <strong>Settings</strong> &rarr; <strong>User Management</strong></li>
+                                <li>Ajoute ton email : <span className="font-mono bg-white/10 px-2 py-0.5 rounded text-white">{session?.user?.email}</span></li>
+                                <li>Attends 30s et clique sur <strong>Réessayer</strong></li>
+                            </ol>
+                        </div>
+
+                        <div className="flex gap-4">
+                            <button onClick={() => window.location.reload()} className="flex-1 px-6 py-3 bg-white text-black font-bold rounded-full hover:scale-105 transition-transform">
+                                Réessayer
+                            </button>
+                            <button onClick={() => router.push('/dashboard')} className="px-6 py-3 bg-white/5 hover:bg-white/10 text-white font-medium rounded-full transition-colors">
+                                Retour Dashboard
+                            </button>
+                        </div>
+                    </div>
+                ) : error ? (
                     <div className="glass p-8 rounded-3xl border border-red-500/20 bg-red-500/10 text-red-200">
                         <AlertCircle className="w-12 h-12 mx-auto mb-4" />
                         <h2 className="text-xl font-bold mb-2">Erreur Critique</h2>
@@ -117,36 +170,9 @@ export default function AnalysisPage() {
                         </div>
                     </div>
                 ) : (
-                    // Results Preview (Temporary for Phase 4)
-                    <div className="glass p-8 rounded-3xl border border-white/5 bg-black/40 text-left">
-                        <div className="flex items-center gap-4 mb-8">
-                            <div className="p-3 bg-green-500/20 rounded-xl text-green-400">
-                                <CheckCircle2 className="w-8 h-8" />
-                            </div>
-                            <div>
-                                <h2 className="text-2xl font-bold text-white">Analyse Terminée</h2>
-                                <p className="text-gray-400">{totalTracks} titres triés en {clusters.length} clusters</p>
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            {clusters.map((cluster, i) => (
-                                <div key={i} className="bg-white/5 p-4 rounded-xl border border-white/5">
-                                    <div className="flex justify-between items-center mb-3">
-                                        <h3 className="font-bold text-purple-300">Groupe {i + 1}</h3>
-                                        <span className="text-xs bg-white/10 px-2 py-1 rounded-full">{cluster.tracks.length} titres</span>
-                                    </div>
-                                    <ul className="text-sm text-gray-400 space-y-1">
-                                        {cluster.tracks.slice(0, 3).map(t => (
-                                            <li key={t.id} className="truncate">• {t.name}</li>
-                                        ))}
-                                        {cluster.tracks.length > 3 && <li className="text-xs italic opacity-50">+{cluster.tracks.length - 3} autres...</li>}
-                                    </ul>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
+                    { progressStep === 3 && clusters && (
+                        <ResultsView clusters={clusters} onClustersUpdate={setClusters} />
+                    )}    )}
             </div>
         </div>
     )
