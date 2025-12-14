@@ -1,0 +1,76 @@
+const SPOTIFY_API_BASE = 'https://api.spotify.com/v1';
+
+export async function fetchUserPlaylists(accessToken: string) {
+    const res = await fetch(`${SPOTIFY_API_BASE}/me/playlists?limit=50`, {
+        headers: {
+            Authorization: `Bearer ${accessToken}`,
+        },
+    });
+
+    if (!res.ok) {
+        throw new Error('Failed to fetch playlists');
+    }
+
+    return res.json();
+}
+
+export async function fetchPlaylist(playlistId: string, accessToken: string) {
+    const res = await fetch(`${SPOTIFY_API_BASE}/playlists/${playlistId}`, {
+        headers: {
+            Authorization: `Bearer ${accessToken}`,
+        },
+    });
+
+    if (!res.ok) {
+        throw new Error('Failed to fetch playlist');
+    }
+
+    return res.json();
+}
+
+/**
+ * Fetches ALL tracks from a playlist, handling pagination automatically.
+ */
+export async function getAllPlaylistTracks(playlistId: string, accessToken: string) {
+    let tracks: any[] = [];
+    let nextUrl = `${SPOTIFY_API_BASE}/playlists/${playlistId}/tracks?limit=50`;
+
+    while (nextUrl) {
+        const res = await fetch(nextUrl, {
+            headers: { Authorization: `Bearer ${accessToken}` }
+        });
+
+        if (!res.ok) throw new Error('Failed to fetch tracks page');
+
+        const data = await res.json();
+        tracks = [...tracks, ...data.items];
+        nextUrl = data.next;
+    }
+
+    return tracks.map(item => item.track).filter(t => t && t.id); // Filter out nulls/locals
+}
+
+/**
+ * Fetches audio features for a list of track IDs, handling batching (max 100 per call).
+ */
+export async function getAudioFeatures(trackIds: string[], accessToken: string) {
+    const chunks = [];
+    for (let i = 0; i < trackIds.length; i += 100) {
+        chunks.push(trackIds.slice(i, i + 100));
+    }
+
+    let allFeatures: any[] = [];
+
+    for (const chunk of chunks) {
+        const res = await fetch(`${SPOTIFY_API_BASE}/audio-features?ids=${chunk.join(',')}`, {
+            headers: { Authorization: `Bearer ${accessToken}` }
+        });
+
+        if (!res.ok) throw new Error('Failed to fetch audio features');
+
+        const data = await res.json();
+        allFeatures = [...allFeatures, ...data.audio_features];
+    }
+
+    return allFeatures;
+}
