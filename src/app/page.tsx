@@ -1,10 +1,13 @@
 'use client'
 
-import Image from 'next/image'
-import { Music, Brain, PartyPopper, ArrowRight, Play, Sparkles } from 'lucide-react'
+import { useEffect, useRef } from 'react'
+import { useSession, signIn } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
 import { motion, useScroll, useTransform } from 'framer-motion'
+import { ArrowRight, Music, Brain, Sparkles, Zap } from 'lucide-react'
+import Image from 'next/image'
+import Link from 'next/link'
 import { Space_Grotesk } from 'next/font/google'
-import { signIn } from 'next-auth/react'
 
 const spaceGrotesk = Space_Grotesk({ subsets: ['latin'] })
 
