@@ -4,6 +4,7 @@ import { useSession } from "next-auth/react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { getAllPlaylistTracks, getArtists, fetchPlaylist } from "@/lib/spotify"
+import { getTracks } from "@/lib/getTracks"
 import { performClustering, TrackData, ClusterResult } from "@/lib/analysis"
 import { Loader2, CheckCircle2, Brain, Music, AlertCircle } from "lucide-react"
 import ResultsView from "@/components/ResultsView"
@@ -27,9 +28,13 @@ export default function AnalysisPage() {
 
         const source = searchParams.get('source')
         const id = searchParams.get('id')
+        const idsParam = searchParams.get('ids')
 
         if (source === 'spotify' && id) {
             startAnalysis(id, session.accessToken)
+        } else if (source === 'csv' && idsParam) {
+            const trackIds = idsParam.split(',')
+            startCSVAnalysis(trackIds, session.accessToken)
         }
     }, [status, session, searchParams])
 
@@ -89,6 +94,60 @@ export default function AnalysisPage() {
 
             // Use Metadata Engine
             // Increased K to max 8 for better granularity
+            const results = performClustering(tracks, Math.min(8, Math.max(4, Math.floor(tracks.length / 15))))
+            setClusters(results)
+            setProgressStep(3)
+
+        } catch (err: any) {
+            console.error(err)
+            setError(err.message || "Une erreur est survenue");
+        }
+    }
+
+    async function startCSVAnalysis(trackIds: string[], token: string) {
+        try {
+            setProgressStep(1)
+            setStatusMsg("Récupération des tracks depuis le CSV...")
+            setPlaylistName("Playlist CSV Import")
+
+            // Fetch tracks by IDs
+            const tracksRaw = await getTracks(trackIds, token)
+            setTotalTracks(tracksRaw.length)
+
+            if (tracksRaw.length === 0) throw new Error("Aucun track valide trouvé.")
+
+            // Step 2: Fetch Artist Metadata
+            setProgressStep(2)
+            setStatusMsg(`Analyse contextuelle (${tracksRaw.length} titres)...`)
+
+            const allArtistIds = tracksRaw.flatMap(t => t.artists.map((a: any) => a.id)).filter(id => id);
+            const artistsData = await getArtists(allArtistIds, token);
+            const artistMap = new Map(artistsData.map((a: any) => [a.id, a]));
+
+            // Merge Data
+            const tracks: TrackData[] = tracksRaw.map((t) => {
+                const mainArtistId = t.artists[0]?.id;
+                const mainArtist = artistMap.get(mainArtistId);
+                const releaseYear = t.album.release_date ? parseInt(t.album.release_date.split('-')[0]) : 2000;
+
+                return {
+                    id: t.id,
+                    name: t.name,
+                    artist: t.artists[0]?.name || 'Unknown',
+                    artistIds: t.artists.map((a: any) => a.id),
+                    album: t.album.name,
+                    releaseYear: releaseYear || 2000,
+                    popularity: t.popularity || 0,
+                    genres: mainArtist?.genres || [],
+                    image: t.album.images?.[0]?.url || t.album.images?.[1]?.url || null,
+                    previewUrl: t.preview_url
+                };
+            });
+
+            // Step 3: Clustering
+            setStatusMsg("Organisation temporelle et stylistique...")
+            await new Promise(r => setTimeout(r, 800))
+
             const results = performClustering(tracks, Math.min(8, Math.max(4, Math.floor(tracks.length / 15))))
             setClusters(results)
             setProgressStep(3)

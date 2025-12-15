@@ -2,9 +2,11 @@
 
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Music, Link as LinkIcon, FileSpreadsheet, Search, Loader2 } from "lucide-react"
+import { Music, Link as LinkIcon, FileSpreadsheet, Search, Loader2, Upload, CheckCircle, XCircle } from "lucide-react"
+import { parsePlaylistCSV, validateCSV } from "@/lib/csvParser"
+import CSVUploader from "@/components/CSVUploader"
 
 export default function Dashboard() {
     const { data: session, status } = useSession()
@@ -13,6 +15,10 @@ export default function Dashboard() {
 
     const [playlists, setPlaylists] = useState<any[]>([])
     const [loading, setLoading] = useState(false)
+    const [csvFile, setCsvFile] = useState<File | null>(null)
+    const [csvError, setCsvError] = useState<string | null>(null)
+    const [csvProcessing, setCsvProcessing] = useState(false)
+    const fileInputRef = useRef<HTMLInputElement>(null)
 
     useEffect(() => {
         if (status === "unauthenticated") {
@@ -37,6 +43,50 @@ export default function Dashboard() {
                 })
         }
     }, [status, activeTab, session])
+
+    const handleCSVFileSelect = (file: File) => {
+        setCsvFile(file)
+        setCsvError(null)
+    }
+
+    const handleCSVAnalyze = async () => {
+        if (!csvFile || !session?.accessToken) return
+
+        setCsvProcessing(true)
+        setCsvError(null)
+
+        try {
+            // Read file content
+            const text = await csvFile.text()
+
+            // Validate
+            const validation = validateCSV(text)
+            if (!validation.valid) {
+                setCsvError(validation.error || "CSV invalide")
+                setCsvProcessing(false)
+                return
+            }
+
+            // Parse
+            const parsedTracks = parsePlaylistCSV(text)
+
+            if (parsedTracks.length === 0) {
+                setCsvError("Aucun track Spotify trouvé dans le CSV")
+                setCsvProcessing(false)
+                return
+            }
+
+            // Extract IDs
+            const trackIds = parsedTracks.map(t => t.spotifyId).filter(Boolean) as string[]
+
+            // Navigate to analysis with CSV IDs
+            router.push(`/analysis?source=csv&ids=${encodeURIComponent(trackIds.join(','))}`)
+        } catch (error: any) {
+            console.error('CSV processing error:', error)
+            setCsvError(error.message || "Erreur de traitement du fichier")
+            setCsvProcessing(false)
+        }
+    }
 
     if (status === "loading") {
         return (
@@ -156,10 +206,16 @@ export default function Dashboard() {
                                 initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -10 }}
-                                className="flex flex-col items-center justify-center h-full min-h-[300px] border-2 border-dashed border-white/10 rounded-2xl hover:border-purple-500/50 transition-colors"
+                                className="flex flex-col items-center justify-center h-full min-h-[300px]"
                             >
-                                <FileSpreadsheet className="w-12 h-12 text-gray-500 mb-4" />
-                                <p className="text-gray-400">Glisse ton fichier CSV ici</p>
+                                <CSVUploader
+                                    file={csvFile}
+                                    error={csvError}
+                                    processing={csvProcessing}
+                                    onFileSelect={handleCSVFileSelect}
+                                    onAnalyze={handleCSVAnalyze}
+                                    fileInputRef={fileInputRef}
+                                />
                             </motion.div>
                         )}
                     </AnimatePresence>
