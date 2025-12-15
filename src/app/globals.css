@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 :root {
-    /* Rich Deep Palette */
+    /* Rich Deep Palette - DARK MODE (default) */
     --bg-deep: #050508;
     --bg-mesh-1: #1a0b2e;
     --bg-mesh-2: #2e0b25;
@@ -15,6 +15,33 @@
     --text-primary: #ffffff;
     --text-soft: rgba(255, 255, 255, 0.7);
     --text-muted: rgba(255, 255, 255, 0.4);
+
+    /* Cards & Surfaces */
+    --card-bg: rgba(255, 255, 255, 0.03);
+    --card-border: rgba(255, 255, 255, 0.05);
+    --card-hover-bg: rgba(255, 255, 255, 0.06);
+}
+
+/* LIGHT MODE */
+html.light {
+    --bg-deep: #fafafa;
+    --bg-mesh-1: #e0d5f5;
+    --bg-mesh-2: #f5d5eb;
+
+    /* Adjusted Accents for Light Mode */
+    --accent-primary: #7c3aed;
+    --accent-secondary: #c026d3;
+    --accent-tertiary: #4f46e5;
+
+    /* Text */
+    --text-primary: #0a0a0f;
+    --text-soft: rgba(10, 10, 15, 0.7);
+    --text-muted: rgba(10, 10, 15, 0.4);
+
+    /* Cards & Surfaces */
+    --card-bg: rgba(255, 255, 255, 0.8);
+    --card-border: rgba(0, 0, 0, 0.08);
+    --card-hover-bg: rgba(255, 255, 255, 0.95);
 }
 
 @layer base {
@@ -23,6 +50,7 @@
         color: var(--text-primary);
         min-height: 100vh;
         overflow-x: hidden;
+        transition: background-color 0.3s ease, color 0.3s ease;
     }
 }
 
@@ -39,6 +67,10 @@
     background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
 }
 
+html.light .noise-bg {
+    opacity: 0.02;
+}
+
 /* Background Mesh Gradients */
 .mesh-gradient {
     position: fixed;
@@ -51,22 +83,35 @@
         radial-gradient(circle at 15% 50%, var(--bg-mesh-1), transparent 25%),
         radial-gradient(circle at 85% 30%, var(--bg-mesh-2), transparent 25%);
     filter: blur(100px);
+    transition: background 0.5s ease;
 }
 
 /* Artistic Glass Card */
 .artistic-card {
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--card-bg);
     backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--card-border);
     box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
     transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 .artistic-card:hover {
-    background: rgba(255, 255, 255, 0.06);
-    border-color: rgba(139, 92, 246, 0.3);
+    background: var(--card-hover-bg);
+    border-color: var(--accent-primary);
     transform: translateY(-5px);
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+}
+
+html.light .artistic-card:hover {
+    box-shadow: 0 20px 40px rgba(124, 58, 237, 0.15);
+}
+
+/* Glass Effect */
+.glass {
+    background: var(--card-bg);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--card-border);
+    transition: all 0.3s ease;
 }
 
 /* Modern Typography */
@@ -78,4 +123,27 @@ h1 {
 ::selection {
     background: rgba(139, 92, 246, 0.3);
     color: white;
+}
+
+html.light ::selection {
+    background: rgba(124, 58, 237, 0.2);
+    color: var(--text-primary);
+}
+
+/* Custom Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: var(--accent-primary);
+    border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: var(--accent-secondary);
 }

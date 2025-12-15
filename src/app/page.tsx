@@ -104,9 +104,12 @@ export default function Home() {
                                 <div className="absolute inset-0 bg-gradient-to-r from-purple-200 to-fuchsia-200 opacity-0 group-hover:opacity-100 transition-opacity" />
                             </button>
 
-                            <button className="px-8 py-4 rounded-full border border-white/10 hover:bg-white/5 transition-colors text-sm font-medium backdrop-blur-sm">
+                            <Link
+                                href="/dashboard?tab=link"
+                                className="px-8 py-4 rounded-full border border-white/10 hover:bg-white/5 transition-colors text-sm font-medium backdrop-blur-sm inline-block"
+                            >
                                 Coller un lien
-                            </button>
+                            </Link>
                         </motion.div>
                     </motion.div>
 

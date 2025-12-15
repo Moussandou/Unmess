@@ -4,14 +4,16 @@ import Link from 'next/link'
 import { useSession, signIn, signOut } from 'next-auth/react'
 import { usePathname } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { LogOut, User, LayoutDashboard, Sparkles } from 'lucide-react'
+import { LogOut, User, LayoutDashboard, Sparkles, Moon, Sun } from 'lucide-react'
 import { Space_Grotesk } from 'next/font/google'
 import { useState } from 'react'
+import { useTheme } from '@/contexts/ThemeContext'
 
 const spaceGrotesk = Space_Grotesk({ subsets: ['latin'] })
 
 export default function Header() {
     const { data: session, status } = useSession()
+    const { theme, toggleTheme } = useTheme()
     const pathname = usePathname()
     const [isHovered, setIsHovered] = useState(false)
 
@@ -37,6 +39,19 @@ export default function Header() {
 
                     {/* Navigation Actions */}
                     <div className="flex items-center gap-4">
+                        {/* Theme Toggle */}
+                        <button
+                            onClick={toggleTheme}
+                            className="p-2 rounded-full bg-white/5 hover:bg-white/10 border border-white/5 transition-all"
+                            title={theme === 'dark' ? 'Mode clair' : 'Mode sombre'}
+                        >
+                            {theme === 'dark' ? (
+                                <Sun className="w-5 h-5 text-yellow-400" />
+                            ) : (
+                                <Moon className="w-5 h-5 text-purple-500" />
+                            )}
+                        </button>
+
                         {status === 'authenticated' ? (
                             <>
                                 {/* Dashboard Link (if not already there) */}
