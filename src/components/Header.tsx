@@ -13,9 +13,19 @@ const spaceGrotesk = Space_Grotesk({ subsets: ['latin'] })
 
 export default function Header() {
     const { data: session, status } = useSession()
-    const { theme, toggleTheme } = useTheme()
     const pathname = usePathname()
     const [isHovered, setIsHovered] = useState(false)
+
+    // Safe theme access with fallback for SSR
+    let theme = 'dark'
+    let toggleTheme = () => { }
+    try {
+        const themeContext = useTheme()
+        theme = themeContext.theme
+        toggleTheme = themeContext.toggleTheme
+    } catch {
+        // During SSR, context not available yet
+    }
 
     const isHome = pathname === '/'
 
