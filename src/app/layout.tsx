@@ -24,9 +24,7 @@ export default function RootLayout({
                 <Providers>
                     <Header />
                     <PageTransition>
-                        <main className="min-h-screen">
-                            {children}
-                        </main>
+                        <main className="min-h-screen">{children}</main>
                     </PageTransition>
                     <Footer />
                 </Providers>
